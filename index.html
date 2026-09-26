@@ -66,6 +66,17 @@
 </head>
 <body class="w-screen h-screen flex flex-col m-0 p-0 select-none">
 
+    <!-- Custom Modal -->
+    <div id="custom-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 transition-opacity duration-300">
+        <div class="bg-gray-800 border border-gray-600 rounded-lg shadow-2xl p-6 max-w-sm w-full mx-4 transform transition-transform duration-300 scale-95" id="custom-modal-content">
+            <h3 class="text-lg font-bold text-white mb-2 text-center">알림</h3>
+            <p id="custom-modal-text" class="text-gray-300 text-sm text-center mb-6">점이 두개 이상이어야 합니다.</p>
+            <div class="flex justify-center">
+                <button onclick="closeModal()" class="px-6 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow active:scale-95 transition-all">확인</button>
+            </div>
+        </div>
+    </div>
+
     <div id="portrait-warning" class="hidden fixed inset-0 z-50 bg-gray-900 flex-col items-center justify-center text-center p-6">
         <svg class="w-16 h-16 text-yellow-400 mb-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
         <h1 class="text-2xl font-bold text-white mb-2">화면을 가로로 돌려주세요</h1>
@@ -92,18 +103,23 @@
                     
                     <!-- Graph Paper -->
                     <div id="stage-paper" class="hidden-item w-[95%] h-[90%] graph-paper rounded-sm relative flex items-center">
-                        <!-- Measuring marks -->
-                        <div class="absolute bottom-1 w-full text-center text-[10px] text-gray-500 font-bold tracking-widest flex justify-between px-[10%]">
-                            <span>0cm</span><span>5cm</span><span>10cm</span><span>15cm</span><span>20cm</span>
+                        
+                        <!-- Ruler (0cm to 20cm) aligned exactly with the sensor connection -->
+                        <div id="ruler-line" class="absolute bottom-4 border-b-2 border-gray-500 z-0" style="left: 110px; right: 30px; height: 30px;">
+                            <div class="absolute left-[0%] bottom-0 flex flex-col items-center -translate-x-1/2"><div class="h-3 w-0.5 bg-gray-600"></div><span class="text-[10px] text-gray-700 font-bold mt-1">0cm</span></div>
+                            <div class="absolute left-[25%] bottom-0 flex flex-col items-center -translate-x-1/2"><div class="h-2 w-0.5 bg-gray-500"></div><span class="text-[10px] text-gray-600 mt-1">5</span></div>
+                            <div class="absolute left-[50%] bottom-0 flex flex-col items-center -translate-x-1/2"><div class="h-3 w-0.5 bg-gray-600"></div><span class="text-[10px] text-gray-700 font-bold mt-1">10</span></div>
+                            <div class="absolute left-[75%] bottom-0 flex flex-col items-center -translate-x-1/2"><div class="h-2 w-0.5 bg-gray-500"></div><span class="text-[10px] text-gray-600 mt-1">15</span></div>
+                            <div class="absolute left-[100%] bottom-0 flex flex-col items-center -translate-x-1/2"><div class="h-3 w-0.5 bg-gray-600"></div><span class="text-[10px] text-gray-700 font-bold mt-1">20cm</span></div>
                         </div>
                         
                         <!-- Hook -->
-                        <div id="stage-hook" class="hidden-item absolute left-[5%] w-4 h-8 bg-gray-400 rounded-full border-2 border-gray-300 shadow-md z-10 flex items-center justify-end">
+                        <div id="stage-hook" class="hidden-item absolute w-4 h-8 bg-gray-400 rounded-full border-2 border-gray-300 shadow-md z-10 flex items-center justify-end" style="left: 15px;">
                             <div class="w-2 h-2 rounded-full bg-gray-700 mr-0.5"></div>
                         </div>
 
                         <!-- Spring SVG Container -->
-                        <div id="stage-spring" class="hidden-item absolute left-[5%] h-12 flex items-center z-20 origin-left" style="width: 80px; padding-left: 10px;">
+                        <div id="stage-spring" class="hidden-item absolute h-12 flex items-center z-20 origin-left" style="left: 25px; width: 85px; padding-left: 10px;">
                             <svg class="w-full h-full drop-shadow-md" viewBox="0 0 100 20" preserveAspectRatio="none">
                                 <path id="spring-path" d="M0,10 L5,10 L10,2 L15,18 L20,2 L25,18 L30,2 L35,18 L40,2 L45,18 L50,2 L55,18 L60,2 L65,18 L70,2 L75,18 L80,2 L85,18 L90,10 L100,10" 
                                       stroke="#94a3b8" stroke-width="3" fill="none" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
@@ -111,8 +127,8 @@
                         </div>
 
                         <!-- Force Sensor -->
-                        <div id="stage-sensor" class="hidden-item absolute z-30 flex items-center" style="left: calc(5% + 80px);">
-                            <div class="w-3 h-6 border-2 border-gray-400 rounded-l-full -mr-1 z-0"></div>
+                        <div id="stage-sensor" class="hidden-item absolute z-30 flex items-center" style="left: 110px;">
+                            <div class="w-3 h-6 border-2 border-gray-400 rounded-l-full -mr-1 z-0 bg-gray-500"></div>
                             <div id="sensor-body" class="w-28 h-14 bg-gray-800 border-2 border-gray-600 rounded-md shadow-[0_5px_15px_rgba(0,0,0,0.5)] flex flex-col items-center justify-center cursor-grab active:cursor-grabbing relative z-10">
                                 <div class="text-[10px] text-gray-400 mb-0.5 uppercase tracking-wider">Force Sensor</div>
                                 <div class="bg-black w-20 h-6 border border-gray-700 rounded flex items-center justify-center">
@@ -173,7 +189,8 @@
             
             <div class="bg-gray-900 p-3 border-b border-gray-700 flex justify-between items-center shrink-0">
                 <h2 class="text-gray-100 font-bold text-sm">탄성력 그래프</h2>
-                <button id="btn-draw-graph" onclick="drawGraph()" class="px-3 py-1 bg-green-600 hover:bg-green-500 text-white rounded shadow-md font-bold text-xs transition-all active:scale-95 opacity-50 pointer-events-none">
+                <!-- Disabled classes removed so it can trigger the modal -->
+                <button id="btn-draw-graph" onclick="drawGraph()" class="px-3 py-1 bg-green-600 hover:bg-green-500 text-white rounded shadow-md font-bold text-xs transition-all active:scale-95">
                     그래프 그리기
                 </button>
             </div>
@@ -367,8 +384,8 @@
             
             let newPxOffset = initialPxOffsetForDrag + effectiveDelta;
             
-            const paperWidth = document.getElementById('stage-paper').clientWidth;
-            const maxPx = paperWidth * 0.8; // Approximate active drawing area for 20cm
+            const rulerEl = document.getElementById('ruler-line');
+            const maxPx = rulerEl ? rulerEl.clientWidth : 200; // Match 20cm exact ruler width
             
             // Clamping
             if (newPxOffset < 0) newPxOffset = 0;
@@ -414,7 +431,7 @@
 
         function updateVisuals(pxDelta, cm) {
             sensorContainer.style.transform = `translateX(${pxDelta}px)`;
-            springContainer.style.width = `${80 + pxDelta}px`;
+            springContainer.style.width = `${85 + pxDelta}px`; // Updated base width to 85px
             updateDisplay(cm);
         }
 
@@ -457,16 +474,41 @@
             checkEnableDrawButton();
         }
 
+        // Custom Modal Logic
+        function showModal(msg) {
+            const modal = document.getElementById('custom-modal');
+            const content = document.getElementById('custom-modal-content');
+            document.getElementById('custom-modal-text').innerText = msg;
+            modal.classList.remove('hidden');
+            void modal.offsetWidth; // trigger reflow
+            content.classList.remove('scale-95');
+            content.classList.add('scale-100');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('custom-modal');
+            const content = document.getElementById('custom-modal-content');
+            content.classList.remove('scale-100');
+            content.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
         function checkEnableDrawButton() {
-            const btn = document.getElementById('btn-draw-graph');
-            if (graphDataA.length >= 2 || graphDataB.length >= 2) {
-                btn.classList.remove('opacity-50', 'pointer-events-none');
-            } else {
-                btn.classList.add('opacity-50', 'pointer-events-none');
-            }
+            // Button is always visually enabled now, modal handles validation
         }
 
         function drawGraph() {
+            // Check if current spring has at least 2 points
+            const currentData = currentSpring === 'A' ? graphDataA : graphDataB;
+            
+            if (currentData.length < 2) {
+                playError();
+                showModal("점이 두개 이상이어야 합니다.");
+                return;
+            }
+
             playSuccess();
             
             // 데이터가 2개 이상일 때 선 보이기 활성화
@@ -519,7 +561,6 @@
             elasticChart.data.datasets[0].showLine = false;
             elasticChart.data.datasets[1].showLine = false;
             elasticChart.update();
-            document.getElementById('btn-draw-graph').classList.add('opacity-50', 'pointer-events-none');
             
             const box = document.getElementById('conclusion-box');
             box.classList.add('hidden', 'opacity-0');
