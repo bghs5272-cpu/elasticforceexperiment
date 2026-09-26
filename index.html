@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>탄성력 측정 실험</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Orbit&display=swap');
+        
+        body {
+            font-family: 'Inter', 'Orbit', sans-serif;
+            background-color: #1a202c;
+            color: #e2e8f0;
+            overflow: hidden; /* Prevent scrolling */
+            touch-action: none; /* Prevent pinch-zoom and scroll on touch devices */
+        }
+
+        /* Portrait Warning Overlay */
+        @media screen and (orientation: portrait) {
+            #portrait-warning { display: flex !important; }
+            #app-container { display: none !important; }
+        }
+
+        /* Custom Styles for Lab Elements */
+        .wood-texture {
+            background: linear-gradient(to right, #8B5A2B, #A0522D, #8B5A2B);
+            box-shadow: 2px 4px 10px rgba(0,0,0,0.5) inset;
+        }
+
+        .graph-paper {
+            background-color: #f8fafc;
+            background-image: 
+                linear-gradient(rgba(59, 130, 246, 0.2) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.2) 1px, transparent 1px),
+                linear-gradient(rgba(59, 130, 246, 0.5) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.5) 1px, transparent 1px);
+            background-size: 10px 10px, 10px 10px, 50px 50px, 50px 50px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        }
+
+        .digital-font {
+            font-family: 'Orbit', monospace;
+            text-shadow: 0 0 5px rgba(34, 197, 94, 0.7);
+        }
+
+        /* Animations */
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+        .error-shake { animation: shake 0.3s ease-in-out; }
+
+        /* Custom Scrollbar for Inventory */
+        .inventory-scroll::-webkit-scrollbar { height: 6px; }
+        .inventory-scroll::-webkit-scrollbar-track { background: #2d3748; border-radius: 4px; }
+        .inventory-scroll::-webkit-scrollbar-thumb { background: #4a5568; border-radius: 4px; }
+
+        .hidden-item { opacity: 0; pointer-events: none; transform: scale(0.8); transition: all 0.3s ease; }
+        .visible-item { opacity: 1; pointer-events: auto; transform: scale(1); transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="w-screen h-screen flex flex-col m-0 p-0 select-none">
+
+    <div id="portrait-warning" class="hidden fixed inset-0 z-50 bg-gray-900 flex-col items-center justify-center text-center p-6">
+        <svg class="w-16 h-16 text-yellow-400 mb-4 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
+        <h1 class="text-2xl font-bold text-white mb-2">화면을 가로로 돌려주세요</h1>
+        <p class="text-gray-300">이 가상 실험은 가로 모드(Landscape)에 최적화되어 있습니다.</p>
+    </div>
+
+    <div id="app-container" class="flex w-full h-full p-2 gap-4 bg-gray-900">
+        
+        <!-- LEFT PANEL: Lab & Controls -->
+        <div class="flex-1 flex flex-col bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden relative">
+            
+            <!-- Prompt Box -->
+            <div class="bg-blue-900 bg-opacity-40 border-b border-blue-700 p-3 shadow-md">
+                <p id="prompt-text" class="text-blue-100 font-semibold text-center text-sm md:text-base transition-opacity duration-300">
+                    용수철의 탄성력을 측정하기 위한 실험을 설계해보세요.
+                </p>
+            </div>
+
+            <!-- Experiment Stage -->
+            <div id="stage" class="flex-1 relative flex items-center justify-center overflow-hidden bg-gray-700 p-4">
+                
+                <!-- Board -->
+                <div id="stage-board" class="hidden-item absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[90%] h-[70%] wood-texture rounded-lg flex items-center justify-center">
+                    
+                    <!-- Graph Paper -->
+                    <div id="stage-paper" class="hidden-item w-[95%] h-[90%] graph-paper rounded-sm relative flex items-center">
+                        <div class="absolute bottom-1 w-full text-center text-[10px] text-gray-500 font-bold tracking-widest flex justify-between px-[10%]">
+                            <span>0cm</span><span>5cm</span><span>10cm</span><span>15cm</span><span>20cm</span>
+                        </div>
+                        
+                        <!-- Hook -->
+                        <div id="stage-hook" class="hidden-item absolute left-[5%] w-4 h-8 bg-gray-400 rounded-full border-2 border-gray-300 shadow-md z-10 flex items-center justify-end">
+                            <div class="w-2 h-2 rounded-full bg-gray-700 mr-0.5"></div>
+                        </div>
+
+                        <!-- Spring SVG Container -->
+                        <div id="stage-spring" class="hidden-item absolute left-[5%] h-12 flex items-center z-20 origin-left" style="width: 80px; padding-left: 10px;">
+                            <svg class="w-full h-full drop-shadow-md" viewBox="0 0 100 20" preserveAspectRatio="none">
+                                <path id="spring-path" d="M0,10 L5,10 L10,2 L15,18 L20,2 L25,18 L30,2 L35,18 L40,2 L45,18 L50,2 L55,18 L60,2 L65,18 L70,2 L75,18 L80,2 L85,18 L90,10 L100,10" 
+                                      stroke="#94a3b8" stroke-width="3" fill="none" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"/>
+                            </svg>
+                        </div>
+
+                        <!-- Force Sensor -->
+                        <div id="stage-sensor" class="hidden-item absolute z-30 flex items-center" style="left: calc(5% + 80px);">
+                            <!-- Hook ring linking to spring -->
+                            <div class="w-3 h-6 border-2 border-gray-400 rounded-l-full -mr-1 z-0"></div>
+                            <!-- Sensor Body -->
+                            <div id="sensor-body" class="w-28 h-14 bg-gray-800 border-2 border-gray-600 rounded-md shadow-[0_5px_15px_rgba(0,0,0,0.5)] flex flex-col items-center justify-center cursor-grab active:cursor-grabbing relative z-10">
+                                <div class="text-[10px] text-gray-400 mb-0.5 uppercase tracking-wider">Force Sensor</div>
+                                <div class="bg-black w-20 h-6 border border-gray-700 rounded flex items-center justify-center">
+                                    <span id="digital-display" class="digital-font text-green-400 text-sm font-bold">0.0 N</span>
+                                </div>
+                                <!-- Drag Handle Indicators -->
+                                <div class="absolute right-[-10px] top-1/2 -translate-y-1/2 flex flex-col gap-1">
+                                    <div class="w-1.5 h-6 bg-gray-500 rounded-full"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory / Setup Tools -->
+            <div id="inventory-area" class="h-20 bg-gray-800 border-t border-gray-700 flex items-center px-4 gap-2 overflow-x-auto inventory-scroll shrink-0">
+                <div class="text-xs text-gray-400 mr-2 font-semibold whitespace-nowrap">준비물:</div>
+                <button onclick="handleItemClick('board', this)" class="setup-btn px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg shadow-sm border border-gray-600 text-sm font-medium transition-colors shrink-0 flex items-center gap-2">
+                    <span class="w-4 h-4 block rounded-sm" style="background: linear-gradient(to right, #8B5A2B, #A0522D);"></span> 나무판
+                </button>
+                <button onclick="handleItemClick('paper', this)" class="setup-btn px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg shadow-sm border border-gray-600 text-sm font-medium transition-colors shrink-0 flex items-center gap-2">
+                    <span class="w-4 h-4 bg-white border border-blue-200 grid grid-cols-2 grid-rows-2"><span class="border-r border-b border-blue-100"></span><span class="border-b border-blue-100"></span><span class="border-r border-blue-100"></span><span></span></span> 모눈종이
+                </button>
+                <button onclick="handleItemClick('hook', this)" class="setup-btn px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg shadow-sm border border-gray-600 text-sm font-medium transition-colors shrink-0 flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full border-2 border-gray-300 block"></span> 고리 나사못
+                </button>
+                <button onclick="handleItemClick('spring', this)" class="setup-btn px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg shadow-sm border border-gray-600 text-sm font-medium transition-colors shrink-0 flex items-center gap-2">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 12h2l2-5 4 10 4-10 2 5h2"/></svg> 용수철
+                </button>
+                <button onclick="handleItemClick('sensor', this)" class="setup-btn px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg shadow-sm border border-gray-600 text-sm font-medium transition-colors shrink-0 flex items-center gap-2">
+                    <span class="w-4 h-3 bg-gray-800 border border-green-500 rounded-sm block"></span> 힘 센서
+                </button>
+            </div>
+
+            <!-- Bottom Controls (Active after setup) -->
+            <div id="controls-area" class="h-14 bg-gray-900 border-t border-gray-700 flex items-center justify-between px-4 shrink-0 transition-opacity duration-500 opacity-50 pointer-events-none">
+                <div class="flex gap-2">
+                    <button id="btn-record" onclick="recordData()" class="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded shadow-md font-bold text-sm transition-all active:scale-95 flex items-center gap-1">
+                        <span class="w-2 h-2 bg-white rounded-full animate-pulse"></span> 기록
+                    </button>
+                    <button id="btn-fix" onclick="toggleFix()" class="px-4 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 rounded shadow-md font-bold text-sm transition-all active:scale-95 flex items-center gap-1">
+                        🔒 고정
+                    </button>
+                    <button id="btn-swap" onclick="swapSpring()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded shadow-md font-bold text-sm transition-all active:scale-95">
+                        용수철 바꾸기 (<span id="current-spring-lbl">현재: A, 탄성계수 50N/m</span>)
+                    </button>
+                </div>
+                <button onclick="resetExperiment()" class="px-4 py-1.5 bg-gray-600 hover:bg-gray-500 text-white rounded shadow-md font-bold text-sm transition-all active:scale-95">
+                    초기화
+                </button>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Graph & Results -->
+        <div class="w-1/3 min-w-[300px] flex flex-col bg-gray-800 rounded-xl shadow-lg border border-gray-700 overflow-hidden relative">
+            
+            <div class="bg-gray-900 p-3 border-b border-gray-700 flex justify-between items-center shrink-0">
+                <h2 class="text-gray-100 font-bold text-sm">탄성력 그래프</h2>
+                <button id="btn-draw-graph" onclick="drawGraph()" class="px-3 py-1 bg-green-600 hover:bg-green-500 text-white rounded shadow-md font-bold text-xs transition-all active:scale-95 opacity-50 pointer-events-none">
+                    그래프 그리기
+                </button>
+            </div>
+
+            <!-- 그래프 컨테이너 영역: 정사각형(aspect-square) 및 중앙 정렬 적용 -->
+            <div class="flex-1 p-2 flex flex-col relative min-h-0 items-center justify-center">
+                
+                <!-- Chart Container (Square) -->
+                <div class="relative bg-white rounded-md p-2 shadow-inner w-full max-w-[95%] aspect-square flex items-center justify-center shrink-0">
+                    <canvas id="elasticChart"></canvas>
+                </div>
+                
+                <!-- Conclusion Box (Hidden initially) -->
+                <div id="conclusion-box" class="absolute bottom-2 left-2 right-2 bg-yellow-100 border-l-4 border-yellow-500 p-3 rounded shadow-lg transform translate-y-full opacity-0 transition-all duration-500 z-10">
+                    <h3 class="text-yellow-800 font-bold text-xs mb-1">📝 개념 정리</h3>
+                    <p class="text-yellow-900 text-[11px] leading-relaxed">
+                        탄성력의 크기는 용수철의 늘어난 길이에 비례합니다. 또한, 그래프의 기울기가 급하면 급할수록 탄성이 강한 용수철입니다 (용수철 B > 용수철 A).
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- State Management ---
+        const EXPECTED_SETUP_ORDER = ['board', 'paper', 'hook', 'spring', 'sensor'];
+        let setupStep = 0; // 0 to 5
+        let currentSpring = 'A'; // 'A' (50 N/m) or 'B' (100 N/m)
+        let draggedDistance_cm = 0; // 0 to 20
+        const MAX_CM = 20;
+        
+        let isFixed = false;
+        
+        let graphDataA = [];
+        let graphDataB = [];
+        let isGraphDrawn = false;
+
+        // Spring Configs
+        const springs = {
+            'A': { k: 0.5, color: '#ef4444', name: '용수철 A (50N/m)', stroke: '#94a3b8', resistance: 1.0 }, // 0.5 N/cm, 기본 저항
+            'B': { k: 1.0, color: '#3b82f6', name: '용수철 B (100N/m)', stroke: '#cbd5e1', resistance: 1.25 }  // 1.0 N/cm, 더 뻣뻣해서 드래그를 더 많이 해야 함
+        };
+
+        // --- Audio System (Web Audio API) ---
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function playTone(freq, type, duration, vol = 0.1) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+            gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function playSuccess() { 
+            initAudio(); 
+            playTone(600, 'sine', 0.1); 
+            setTimeout(() => playTone(800, 'sine', 0.15), 100); 
+        }
+        function playError() { 
+            initAudio(); 
+            playTone(150, 'sawtooth', 0.3, 0.2); 
+        }
+        function playRecord() { 
+            initAudio(); 
+            playTone(1000, 'sine', 0.1, 0.1); 
+            setTimeout(() => playTone(1500, 'sine', 0.2, 0.1), 100);
+        }
+        function playTick() { 
+            if(!audioCtx) return;
+            playTone(300 + Math.random()*100, 'triangle', 0.05, 0.02); 
+        }
+        function playSnap() {
+            initAudio();
+            playTone(200, 'square', 0.1, 0.1);
+        }
+
+        // --- Chart.js Setup ---
+        let elasticChart;
+        function initChart() {
+            const ctx = document.getElementById('elasticChart').getContext('2d');
+            
+            // Custom plugin to draw background grid area matching the paper (optional aesthetic)
+            elasticChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: springs['A'].name,
+                            data: graphDataA,
+                            backgroundColor: springs['A'].color,
+                            borderColor: springs['A'].color,
+                            borderWidth: 2,
+                            pointRadius: 5,
+                            showLine: false, // Initially scatter
+                            tension: 0
+                        },
+                        {
+                            label: springs['B'].name,
+                            data: graphDataB,
+                            backgroundColor: springs['B'].color,
+                            borderColor: springs['B'].color,
+                            borderWidth: 2,
+                            pointRadius: 5,
+                            showLine: false,
+                            tension: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true, /* 그래프를 완벽한 정사각형으로 유지 */
+                    aspectRatio: 1, /* 1:1 비율 설정 */
+                    animation: { duration: 300 },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            min: 0,
+                            max: 20,
+                            title: { display: true, text: '늘어난 길이 (cm)', font: { family: 'Inter', weight: 'bold' } },
+                            grid: { color: '#e2e8f0' }
+                        },
+                        y: {
+                            min: 0,
+                            max: 20,
+                            title: { display: true, text: '탄성력 (N)', font: { family: 'Inter', weight: 'bold' } },
+                            grid: { color: '#e2e8f0' }
+                        }
+                    },
+                    plugins: {
+                        legend: { position: 'top', labels: { font: { family: 'Inter' } } },
+                        tooltip: { enabled: true }
+                    }
+                }
+            });
+        }
+
+        // --- Setup Logic ---
+        const prompts = [
+            "용수철의 탄성력을 측정하기 위한 실험을 설계해보세요.",
+            "이제 용수철이 늘어난 길이를 알기 위해 무엇을 나무판 위에 붙여야 할까요?",
+            "잘했습니다! 용수철을 고정시키기 위해 무엇이 필요할까요?",
+            "이제 용수철을 고정시킬 수 있습니다. 고리 나사못에 무엇을 걸어야 할까요?",
+            "이제 탄성력을 측정하기 위해서는 무엇이 필요할까요?",
+            "세팅 완료! 힘 센서를 오른쪽으로 당겨 기록버튼을 누르세요."
+        ];
+
+        function handleItemClick(itemType, btnEl) {
+            initAudio();
+            if (setupStep >= 5) return; // Already setup
+
+            if (EXPECTED_SETUP_ORDER[setupStep] === itemType) {
+                // Correct item
+                playSuccess();
+                showStageItem(itemType);
+                btnEl.classList.add('opacity-30', 'pointer-events-none');
+                btnEl.classList.remove('hover:bg-gray-600');
+                
+                setupStep++;
+                updatePrompt(prompts[setupStep]);
+
+                if (setupStep === 5) {
+                    completeSetup();
+                }
+            } else {
+                // Wrong item
+                playError();
+                btnEl.classList.add('error-shake');
+                setTimeout(() => btnEl.classList.remove('error-shake'), 300);
+            }
+        }
+
+        function showStageItem(itemType) {
+            const el = document.getElementById(`stage-${itemType}`);
+            if (el) {
+                el.classList.remove('hidden-item');
+                el.classList.add('visible-item');
+            }
+        }
+
+        function updatePrompt(text) {
+            const promptEl = document.getElementById('prompt-text');
+            promptEl.style.opacity = 0;
+            setTimeout(() => {
+                promptEl.innerText = text;
+                promptEl.style.opacity = 1;
+            }, 300);
+        }
+
+        function completeSetup() {
+            document.getElementById('inventory-area').classList.add('opacity-50', 'pointer-events-none');
+            const controls = document.getElementById('controls-area');
+            controls.classList.remove('opacity-50', 'pointer-events-none');
+            controls.classList.add('opacity-100');
+            
+            // Enable sensor dragging
+            initDrag();
+        }
+
+        // --- Measurement (Drag) Logic ---
+        let isDragging = false;
+        let startClientX = 0;
+        let baseSensorLeft = 0; // The CSS left value without drag
+        const sensorEl = document.getElementById('sensor-body');
+        const sensorContainer = document.getElementById('stage-sensor');
+        const springContainer = document.getElementById('stage-spring');
+        const displayEl = document.getElementById('digital-display');
+        
+        let lastTickDistance = 0;
+
+        function initDrag() {
+            sensorEl.addEventListener('mousedown', dragStart);
+            sensorEl.addEventListener('touchstart', dragStart, {passive: false});
+            window.addEventListener('mousemove', dragMove);
+            window.addEventListener('touchmove', dragMove, {passive: false});
+            window.addEventListener('mouseup', dragEnd);
+            window.addEventListener('touchend', dragEnd);
+            
+            // Store base styles for reset
+            baseSensorLeft = sensorContainer.style.left;
+        }
+
+        function dragStart(e) {
+            if (setupStep < 5) return;
+            initAudio();
+            isDragging = true;
+            startClientX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            sensorEl.classList.add('scale-105', 'bg-gray-700');
+        }
+
+        function dragMove(e) {
+            if (!isDragging) return;
+            e.preventDefault(); // Prevent scrolling
+            
+            if (isFixed) return;
+            
+            const currentX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
+            let deltaX = currentX - startClientX;
+            
+            if (deltaX < 0) deltaX = 0;
+            
+            // 용수철의 탄성계수에 따른 저항(resistance)을 적용하여 뻣뻣한 느낌 시뮬레이션
+            let effectiveDeltaX = deltaX / springs[currentSpring].resistance;
+            
+            // Calculate max pixel drag based on paper width
+            // Paper represents 20cm. Let's map deltaX pixels to cm.
+            // Assumption: 80% of paper width is the 0-20cm range.
+            const paperWidth = document.getElementById('stage-paper').clientWidth;
+            const maxPx = paperWidth * 0.8; // Approximate active drawing area
+            
+            if (effectiveDeltaX > maxPx) effectiveDeltaX = maxPx;
+            
+            draggedDistance_cm = (effectiveDeltaX / maxPx) * MAX_CM;
+            updateVisuals(effectiveDeltaX, draggedDistance_cm);
+
+            // Tick sound every ~1 cm
+            if (Math.abs(draggedDistance_cm - lastTickDistance) >= 0.5) {
+                playTick();
+                lastTickDistance = draggedDistance_cm;
+            }
+        }
+
+        function dragEnd(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            sensorEl.classList.remove('scale-105', 'bg-gray-700');
+            
+            if (isFixed) return;
+            
+            // Snap back animation
+            triggerSnapBack();
+        }
+
+        function triggerSnapBack() {
+            playSnap();
+            sensorContainer.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            springContainer.style.transition = 'width 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+            
+            sensorContainer.style.transform = `translateX(0px)`;
+            springContainer.style.width = `80px`;
+            
+            setTimeout(() => {
+                sensorContainer.style.transition = 'none';
+                springContainer.style.transition = 'none';
+                draggedDistance_cm = 0;
+                lastTickDistance = 0;
+                updateDisplay(0);
+            }, 300);
+        }
+
+        function toggleFix() {
+            initAudio();
+            playTick();
+            isFixed = !isFixed;
+            const btn = document.getElementById('btn-fix');
+            if (isFixed) {
+                btn.innerHTML = '🔓 고정 해제';
+                btn.classList.replace('bg-yellow-500', 'bg-gray-500');
+                btn.classList.replace('hover:bg-yellow-400', 'hover:bg-gray-400');
+                btn.classList.replace('text-yellow-900', 'text-white');
+            } else {
+                btn.innerHTML = '🔒 고정';
+                btn.classList.replace('bg-gray-500', 'bg-yellow-500');
+                btn.classList.replace('hover:bg-gray-400', 'hover:bg-yellow-400');
+                btn.classList.replace('text-white', 'text-yellow-900');
+                
+                // 만약 현재 드래그 중이 아닌데 위치가 늘어나 있다면, 고정 해제 시 원래대로 돌아갑니다.
+                if (!isDragging && draggedDistance_cm > 0) {
+                    triggerSnapBack();
+                }
+            }
+        }
+
+        function updateVisuals(pxDelta, cm) {
+            // Move sensor
+            sensorContainer.style.transform = `translateX(${pxDelta}px)`;
+            // Stretch spring (base width 80px + delta)
+            springContainer.style.width = `${80 + pxDelta}px`;
+            
+            updateDisplay(cm);
+        }
+
+        function updateDisplay(cm) {
+            const force = cm * springs[currentSpring].k;
+            // 항상 대문자 N으로 출력되도록 명시적 설정
+            displayEl.innerText = `${force.toFixed(1)} N`; 
+        }
+
+        // --- Controls Logic ---
+        function swapSpring() {
+            initAudio();
+            playTick();
+            currentSpring = currentSpring === 'A' ? 'B' : 'A';
+            
+            const springText = currentSpring === 'A' ? '현재: A, 탄성계수 50N/m' : '현재: B, 탄성계수 100N/m';
+            document.getElementById('current-spring-lbl').innerText = springText;
+            
+            // Update visual spring color
+            document.getElementById('spring-path').setAttribute('stroke', springs[currentSpring].stroke);
+            
+            // Re-calc display if dragged
+            updateDisplay(draggedDistance_cm);
+        }
+
+        function recordData() {
+            if (setupStep < 5) return;
+            if (draggedDistance_cm === 0) return; // Don't record 0 repeatedly easily
+            
+            playRecord();
+            const cm = parseFloat(draggedDistance_cm.toFixed(1));
+            const force = parseFloat((cm * springs[currentSpring].k).toFixed(1));
+            
+            const point = { x: cm, y: force };
+            
+            if (currentSpring === 'A') {
+                if(!graphDataA.some(p => Math.abs(p.x - cm) < 0.5)) graphDataA.push(point);
+            } else {
+                if(!graphDataB.some(p => Math.abs(p.x - cm) < 0.5)) graphDataB.push(point);
+            }
+            
+            // Sort points
+            graphDataA.sort((a,b) => a.x - b.x);
+            graphDataB.sort((a,b) => a.x - b.x);
+            
+            elasticChart.update();
+            checkEnableDrawButton();
+        }
+
+        function checkEnableDrawButton() {
+            const btn = document.getElementById('btn-draw-graph');
+            if (graphDataA.length > 2 || graphDataB.length > 2) {
+                btn.classList.remove('opacity-50', 'pointer-events-none');
+            }
+        }
+
+        function drawGraph() {
+            if(isGraphDrawn) return;
+            playSuccess();
+            isGraphDrawn = true;
+            
+            // Change dataset type to line
+            elasticChart.data.datasets[0].showLine = true;
+            elasticChart.data.datasets[1].showLine = true;
+            elasticChart.update();
+            
+            // Show conclusion
+            const box = document.getElementById('conclusion-box');
+            box.classList.remove('translate-y-full', 'opacity-0');
+            box.classList.add('translate-y-0', 'opacity-100');
+        }
+
+        function resetExperiment() {
+            initAudio();
+            playTick();
+            
+            // Reset States
+            setupStep = 0;
+            currentSpring = 'A';
+            draggedDistance_cm = 0;
+            isFixed = false;
+            graphDataA.length = 0;
+            graphDataB.length = 0;
+            isGraphDrawn = false;
+            
+            // Reset UI
+            updatePrompt(prompts[0]);
+            document.getElementById('current-spring-lbl').innerText = '현재: A, 탄성계수 50N/m';
+            document.getElementById('spring-path').setAttribute('stroke', springs['A'].stroke);
+            
+            const fixBtn = document.getElementById('btn-fix');
+            if(fixBtn) {
+                fixBtn.innerHTML = '🔒 고정';
+                fixBtn.className = 'px-4 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 rounded shadow-md font-bold text-sm transition-all active:scale-95 flex items-center gap-1';
+            }
+            
+            EXPECTED_SETUP_ORDER.forEach(item => {
+                const el = document.getElementById(`stage-${item}`);
+                if(el) {
+                    el.classList.remove('visible-item');
+                    el.classList.add('hidden-item');
+                }
+            });
+            
+            const btns = document.querySelectorAll('.setup-btn');
+            btns.forEach(btn => {
+                btn.classList.remove('opacity-30', 'pointer-events-none');
+                btn.classList.add('hover:bg-gray-600');
+            });
+            
+            document.getElementById('inventory-area').classList.remove('opacity-50', 'pointer-events-none');
+            document.getElementById('controls-area').classList.add('opacity-50', 'pointer-events-none');
+            document.getElementById('controls-area').classList.remove('opacity-100');
+            
+            sensorContainer.style.transform = `translateX(0px)`;
+            springContainer.style.width = `80px`;
+            updateDisplay(0);
+            
+            // Reset Chart
+            elasticChart.data.datasets[0].showLine = false;
+            elasticChart.data.datasets[1].showLine = false;
+            elasticChart.update();
+            document.getElementById('btn-draw-graph').classList.add('opacity-50', 'pointer-events-none');
+            
+            const box = document.getElementById('conclusion-box');
+            box.classList.add('translate-y-full', 'opacity-0');
+            box.classList.remove('translate-y-0', 'opacity-100');
+            
+            // Remove listeners
+            sensorEl.removeEventListener('mousedown', dragStart);
+            sensorEl.removeEventListener('touchstart', dragStart);
+            window.removeEventListener('mousemove', dragMove);
+            window.removeEventListener('touchmove', dragMove);
+            window.removeEventListener('mouseup', dragEnd);
+            window.removeEventListener('touchend', dragEnd);
+        }
+
+        // Initialize on load
+        window.onload = () => {
+            initChart();
+        };
+    </script>
+</body>
+</html>
